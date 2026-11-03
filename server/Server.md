@@ -1,0 +1,1 @@
+"R:\program_files\bin\go.exe" run ./cmd/api to start server.
