@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowUpIcon, MessageCircleIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { GlobeIcon, MessageCircleIcon, RotateCcwIcon } from "lucide-react";
+import { Mascot } from "page-mascot";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -10,12 +13,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@/components/ui/input-group";
 import { Message, MessageContent } from "@/components/ui/message";
 import {
   MessageScroller,
@@ -25,114 +22,290 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
+import { submitOnboarding } from "@/lib/onboarding-api";
+import { LANGUAGES, MESSAGES } from "../i18n/messages";
+import { type Answers, buildTranscript, STEPS } from "../script";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  BusinessInput,
+  CityInput,
+  LanguageInput,
+  NameInput,
+  PhoneInput,
+  PurposeInput,
+} from "./StepInputs";
+import { StreamingText } from "./StreamingText";
+import { useSmoothFollow } from "./useSmoothFollow";
 
-type ChatMessage = { id: number; text: string };
+const TYPING_MS = 1100; // short pause so the agent's reply feels natural
+const STORAGE_KEY = "gnani:onboarding";
 
-// UI only for now: sent messages are kept in local state, nothing is sent anywhere.
+type Status = "idle" | "saving" | "error" | "saved";
+
 export function WelcomeChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [draft, setDraft] = useState("");
+  const router = useRouter();
+  const [stepIndex, setStepIndex] = useState(0);
+  const [answers, setAnswers] = useState<Answers>({});
+  const [typing, setTyping] = useState(false);
+  // Id of the agent message currently being "streamed" word by word.
+  const [streamingId, setStreamingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>("idle");
+  const [restored, setRestored] = useState(false);
+  const submitting = useRef(false);
+  const scrollArea = useRef<HTMLDivElement>(null);
+  useSmoothFollow(scrollArea);
 
-  function send() {
-    const text = draft.trim();
-    if (!text) return;
-    setMessages((prev) => [...prev, { id: prev.length + 1, text }]);
-    setDraft("");
+  // Restore progress after a page refresh.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          stepIndex: number;
+          answers: Answers;
+        };
+        setStepIndex(parsed.stepIndex);
+        setAnswers(parsed.answers);
+      }
+    } catch {
+      // Storage can be unavailable; the conversation just starts over.
+    }
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ stepIndex, answers }),
+      );
+    } catch {}
+  }, [restored, stepIndex, answers]);
+
+  const step = STEPS[stepIndex];
+  const t = MESSAGES[answers.lang ?? "en"];
+  const lines = buildTranscript(stepIndex, answers);
+
+  // Records the user's answer, shows it, then lets the agent "reply".
+  function answer(patch: Partial<Answers>) {
+    setAnswers((prev) => ({ ...prev, ...patch }));
+    setTyping(true);
+    const next = stepIndex + 1;
+    setTimeout(() => {
+      setStepIndex(next);
+      setStreamingId(`a-${STEPS[next]}`);
+      setTyping(false);
+    }, TYPING_MS);
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    send();
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
+  async function save() {
+    const { lang, business, city, purpose, phone, agentName } = answers;
+    if (!lang || !business || !city || !purpose || !phone || !agentName) return;
+    if (submitting.current) return;
+    submitting.current = true;
+    setStatus("saving");
+    try {
+      await submitOnboarding({
+        preferredLanguage: lang,
+        shopName: business.name,
+        category: business.category,
+        city,
+        purpose,
+        phone,
+        aiEmployeeName: agentName,
+      });
+      setStatus("saved");
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch {}
+      setTimeout(() => router.replace("/dashboard"), 1500);
+    } catch {
+      setStatus("error");
+      submitting.current = false;
     }
   }
 
+  // Final step: send everything to the server in one go.
+  useEffect(() => {
+    if (restored && step === "done" && status === "idle") void save();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored, step, status]);
+
+  // Clears everything and restarts the conversation from the language step.
+  function retake() {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    submitting.current = false;
+    setAnswers({});
+    setStepIndex(0);
+    setStreamingId(null);
+    setTyping(false);
+    setStatus("idle");
+  }
+
+  function retry() {
+    setStatus("idle");
+  }
+
+  const showInput = restored && !typing && !streamingId && step !== "done";
+  const langLabel = LANGUAGES.find((l) => l.code === answers.lang)?.label;
+
   return (
-    <TooltipProvider>
-      <div className="flex h-full flex-col">
-        <MessageScrollerProvider>
+    <div className="flex h-full flex-col">
+      <header className="flex items-center justify-between px-5 pt-4">
+        <Mascot
+          directions="/crt-directions.webp"
+          reactions="/crt-reactions.webp"
+          size={48}
+          label="Onboarding agent"
+        />
+        {answers.lang && (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 rounded-full border border-input bg-white px-3 py-1.5 text-sm">
+              <GlobeIcon className="size-3.5 text-muted-foreground" />
+              {langLabel}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-full bg-white"
+              onClick={retake}
+              disabled={status === "saving" || status === "saved"}
+            >
+              <RotateCcwIcon />
+              {t.retake}
+            </Button>
+            {answers.lang !== "en" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full bg-white"
+                onClick={() => setAnswers((p) => ({ ...p, lang: "en" }))}
+              >
+                ENG
+              </Button>
+            )}
+          </div>
+        )}
+      </header>
+      <div ref={scrollArea} className="flex min-h-0 flex-1 flex-col">
+        <MessageScrollerProvider autoScroll={false}>
           <MessageScroller className="flex-1">
             <MessageScrollerViewport>
               <MessageScrollerContent className="mx-auto w-full max-w-2xl px-4 py-6">
-                {messages.length === 0 ? (
+                {lines.length === 0 ? (
                   <Empty className="my-auto border-0">
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
                         <MessageCircleIcon />
                       </EmptyMedia>
-                      <EmptyTitle>Your conversation starts here</EmptyTitle>
+                      <EmptyTitle>Say hello to begin</EmptyTitle>
                       <EmptyDescription>
-                        Say hello to begin. I&apos;ll ask a few quick questions
-                        to set up your AI employee.
+                        I&apos;ll ask a few quick questions to set up your AI
+                        employee. Pick your preferred language to start.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
                 ) : (
-                  messages.map((m, i) => (
+                  lines.map((line, i) => (
                     <MessageScrollerItem
-                      key={m.id}
-                      scrollAnchor={i === messages.length - 1}
+                      key={line.id}
+                      scrollAnchor={i === lines.length - 1 && !typing}
                     >
-                      <Message align="end">
+                      <Message align={line.role === "user" ? "end" : "start"}>
                         <MessageContent>
-                          <Bubble align="end">
-                            <BubbleContent>{m.text}</BubbleContent>
+                          <Bubble
+                            align={line.role === "user" ? "end" : "start"}
+                            variant={line.role === "user" ? "default" : "muted"}
+                          >
+                            <BubbleContent>
+                              {line.id === streamingId ? (
+                                <StreamingText
+                                  text={line.text}
+                                  onDone={() => setStreamingId(null)}
+                                />
+                              ) : (
+                                line.text
+                              )}
+                            </BubbleContent>
                           </Bubble>
                         </MessageContent>
                       </Message>
                     </MessageScrollerItem>
                   ))
                 )}
+
+                {(typing || (status === "saving" && !streamingId)) && (
+                  <MessageScrollerItem scrollAnchor>
+                    <Message>
+                      <MessageContent>
+                        <Bubble variant="muted">
+                          <BubbleContent aria-label="typing">
+                            <span className="flex items-center gap-1 py-1">
+                              {[0, 1, 2].map((d) => (
+                                <span
+                                  key={d}
+                                  className="size-1.5 animate-bounce rounded-full bg-foreground/40"
+                                  style={{ animationDelay: `${d * 120}ms` }}
+                                />
+                              ))}
+                            </span>
+                          </BubbleContent>
+                        </Bubble>
+                      </MessageContent>
+                    </Message>
+                  </MessageScrollerItem>
+                )}
+
+                {status === "error" && (
+                  <MessageScrollerItem scrollAnchor>
+                    <Message>
+                      <MessageContent>
+                        <Bubble variant="destructive">
+                          <BubbleContent>{t.saveFailed}</BubbleContent>
+                        </Bubble>
+                      </MessageContent>
+                    </Message>
+                  </MessageScrollerItem>
+                )}
               </MessageScrollerContent>
             </MessageScrollerViewport>
             <MessageScrollerButton />
           </MessageScroller>
         </MessageScrollerProvider>
-
-        <form onSubmit={onSubmit} className="mx-auto w-full max-w-2xl px-4 pb-4">
-          <InputGroup className="rounded-2xl bg-white">
-            <InputGroupTextarea
-              rows={1}
-              placeholder="Type your message..."
-              aria-label="Message"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onKeyDown}
-              className="max-h-40 min-h-12"
-            />
-            <InputGroupAddon align="block-end">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <InputGroupButton
-                      type="submit"
-                      variant="default"
-                      size="icon-sm"
-                      aria-label="Send message"
-                      disabled={!draft.trim()}
-                      className="ml-auto rounded-full"
-                    />
-                  }
-                >
-                  <ArrowUpIcon />
-                </TooltipTrigger>
-                <TooltipContent>Send message</TooltipContent>
-              </Tooltip>
-            </InputGroupAddon>
-          </InputGroup>
-        </form>
       </div>
-    </TooltipProvider>
+
+      <div className="mx-auto w-full max-w-2xl px-4 pb-4">
+        {showInput && step === "language" && (
+          <LanguageInput t={t} onSend={(lang) => answer({ lang })} />
+        )}
+        {showInput && step === "business" && (
+          <BusinessInput t={t} onSend={(business) => answer({ business })} />
+        )}
+        {showInput && step === "city" && (
+          <CityInput t={t} onSend={(city) => answer({ city })} />
+        )}
+        {showInput && step === "purpose" && (
+          <PurposeInput t={t} onSend={(purpose) => answer({ purpose })} />
+        )}
+        {showInput && step === "phone" && (
+          <PhoneInput t={t} onSend={(phone) => answer({ phone })} />
+        )}
+        {showInput && step === "name" && (
+          <NameInput t={t} onSend={(agentName) => answer({ agentName })} />
+        )}
+        {status === "error" && (
+          <div className="flex gap-3">
+            <Button onClick={retry} className="flex-1">
+              {t.retry}
+            </Button>
+            <Button onClick={retake} variant="outline" className="flex-1">
+              {t.retake}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

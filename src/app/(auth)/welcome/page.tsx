@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { Suspense } from "react";
-import { auth } from "@/lib/auth";
+import { getSessionSafe } from "@/lib/session";
 import { WelcomeScreen } from "@/modules/welcome/components/WelcomeScreen";
 
 // Show the first name; email sign-ups have no name, so fall back to the
@@ -11,7 +11,7 @@ function displayName(user: { name?: string | null; email: string }) {
 }
 
 async function WelcomeContent() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSessionSafe(await headers());
   return <WelcomeScreen name={session ? displayName(session.user) : "there"} />;
 }
 

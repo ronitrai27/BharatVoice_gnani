@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getSessionSafe } from "@/lib/session";
 
 export async function proxy(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await getSessionSafe(request.headers);
 
   if (!session) {
     return NextResponse.redirect(new URL("/auth", request.url));

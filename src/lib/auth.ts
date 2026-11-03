@@ -61,7 +61,8 @@ export const auth = betterAuth({
           subject: `${otp} is your Gnani sign-in code`,
           html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;padding:24px"><h2 style="margin:0 0 8px">Your sign-in code</h2><p style="color:#555;margin:0 0 20px">Enter this code to continue to Gnani. It expires in 10 minutes.</p><div style="font-size:34px;letter-spacing:10px;font-weight:700;color:#191919">${otp}</div><p style="color:#888;font-size:12px;margin-top:24px">If you didn't request this, you can ignore this email.</p></div>`,
         });
-        if (error) throw new Error(`Failed to send OTP email: ${error.message}`);
+        if (error)
+          throw new Error(`Failed to send OTP email: ${error.message}`);
       },
     }),
     jwt(),

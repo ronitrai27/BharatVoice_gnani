@@ -1,12 +1,12 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { auth } from "@/lib/auth";
+import { getSessionSafe } from "@/lib/session";
 import { AuthForm } from "@/modules/auth/components/AuthForm";
 import { AuthShowcase } from "@/modules/auth/components/AuthShowcase";
 
 async function RedirectIfSignedIn() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSessionSafe(await headers());
   if (session) redirect("/auth/callback");
   return null;
 }

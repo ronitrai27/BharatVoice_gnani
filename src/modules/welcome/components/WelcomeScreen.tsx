@@ -9,6 +9,16 @@ import { WelcomeChat } from "./WelcomeChat";
 const INTRO_MS = 4200;
 const EASE = [0.4, 0, 0.2, 1] as const;
 
+// Fades all four edges (and so the corners) of the panel into the background.
+const FADE =
+  "transparent 0, black 56px, black calc(100% - 56px), transparent 100%";
+const FADE_MASK = {
+  maskImage: `linear-gradient(to right, ${FADE}), linear-gradient(to bottom, ${FADE})`,
+  maskComposite: "intersect",
+  WebkitMaskImage: `linear-gradient(to right, ${FADE}), linear-gradient(to bottom, ${FADE})`,
+  WebkitMaskComposite: "source-in",
+} as const;
+
 export function WelcomeScreen({ name }: { name: string }) {
   const [phase, setPhase] = useState<"intro" | "chat">("intro");
 
@@ -21,7 +31,14 @@ export function WelcomeScreen({ name }: { name: string }) {
     <main className="relative flex h-screen items-center justify-center overflow-hidden bg-white px-4">
       <DitherBackground />
 
-      <div className="relative z-10 h-[86vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-black/5 bg-white/80 shadow-xl backdrop-blur-sm">
+      <div className="relative z-10 h-[86vh] w-full max-w-4xl overflow-hidden">
+        {/* The white panel is its own layer so only its edges fade out; the
+            content on top stays fully visible. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-white/85 backdrop-blur-sm"
+          style={FADE_MASK}
+        />
         <AnimatePresence mode="wait">
           {phase === "intro" ? (
             <motion.div
