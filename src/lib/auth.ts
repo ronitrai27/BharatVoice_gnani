@@ -39,6 +39,9 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_SECRET as string,
+      // Refresh name and photo from Google on every sign-in, so accounts that
+      // first signed up with an email code get their real name too.
+      overrideUserInfoOnSignIn: true,
     },
   },
   account: {
