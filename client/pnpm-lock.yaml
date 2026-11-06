@@ -29,6 +29,9 @@ importers:
       better-auth:
         specifier: ^1.7.15
         version: 1.7.15(next@16.4.3(@babel/core@7.29.7)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.23.1)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      catelog:
+        specifier: ^1.2.0
+        version: 1.2.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1301,6 +1304,11 @@ packages:
 
   caniuse-lite@1.0.30001819:
     resolution: {integrity: sha512-LFUqIIAwpzsIuevnKnsR9qnStBcgzPShTX61lBwN9uFkkf8o8zLiebEjbW8AYtZiF+1YKDWfdt/pWDtMuG8Xwg==}
+
+  catelog@1.2.0:
+    resolution: {integrity: sha512-He8cajKG5gN0pM9XZSxe4cJymuHzxHLp4bOUjnkJl2PMw0xzMq58rpBkSPqwXu6T+2GUNGc7/qsdhRp5f6EmTQ==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -2642,6 +2650,14 @@ packages:
     resolution: {integrity: sha512-xYqdZFUK/VYazNl/oCDYN+3WloWQwMfZxBoiNt6qNyk+xfOdi598muWE42rNZFp1kNOiqW936q5RhUdnpqElSg==}
     engines: {node: '>=18'}
 
+  zod-to-json-schema@3.25.2:
+    resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
+    peerDependencies:
+      zod: ^3.25.28 || ^4
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
@@ -3699,6 +3715,11 @@ snapshots:
       run-applescript: 7.1.0
 
   caniuse-lite@1.0.30001819: {}
+
+  catelog@1.2.0:
+    dependencies:
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
 
   ccount@2.0.1: {}
 
@@ -4924,6 +4945,12 @@ snapshots:
       yoctocolors: 2.2.0
 
   yoctocolors@2.2.0: {}
+
+  zod-to-json-schema@3.25.2(zod@3.25.76):
+    dependencies:
+      zod: 3.25.76
+
+  zod@3.25.76: {}
 
   zod@4.6.7: {}
 
