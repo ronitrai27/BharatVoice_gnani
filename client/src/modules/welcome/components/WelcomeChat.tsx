@@ -24,6 +24,7 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { submitOnboarding } from "@/lib/onboarding-api";
+import { WELCOME_DIALOG_KEY } from "@/modules/dashboard/components/WelcomeDialog";
 import { fill, LANGUAGES, MESSAGES } from "../i18n/messages";
 import { type Answers, buildTranscript, STEPS } from "../script";
 import {
@@ -124,6 +125,9 @@ export function WelcomeChat({ userName }: { userName: string }) {
       setStatus("saved");
       try {
         sessionStorage.removeItem(STORAGE_KEY);
+      } catch {}
+      try {
+        sessionStorage.setItem(WELCOME_DIALOG_KEY, "1");
       } catch {}
       setTimeout(() => router.replace("/dashboard"), 1500);
     } catch {
